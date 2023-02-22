@@ -1,0 +1,131 @@
+---
+title: "Data605_Assignment04"
+author: "Mahmud Hasan Al Raji"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This assignment is done to build and visualize eigenimagery that accounts for 80% of the variability of the given image data set. To do so, following steps are being followed:
+
+(1) Uploading the image files as a list that containing the image features i.e. names,pixels etc.
+(2) Converting the multi-dimensional data list into an array 
+(3) Transforming the array into a column vector. The vector is formed by splitting each image into R,G,B components and concatenate these components into that vector.
+(4) Creating an empty matrix and then loading RGB vectors into the matrix and then creating a data frame with the transpose of the data matrix.
+(5) Normalizing the data set using the mean value (=0) and standard deviation (=1) and then the correlation matrix is computed.
+(6) Calculating the eigenvectors and eigenvalues of the covariance matrix and then determining the principal components of the images.
+(7) Finally, identifying the principal components that accounted for 80% of the variability in the data set and computing the new data set by projecting the original data into the newly found eigenspace.
+
+# Required Libraries
+
+```{r message=FALSE}
+library(jpeg)
+library(OpenImageR)
+
+```
+
+# Creating list for images' features (pixels included)
+
+```{r }
+files<-list.files("C:\\Users\\Acer\\Documents\\jpg",pattern="\\.jpg",full.names = TRUE)
+```
+
+# Loading data into an array
+
+```{r}
+for (file in files) {
+  img <- readImage(file)  
+}
+
+```
+
+# Vectorizing with RGB components of the images 
+
+```{r}
+flat <- matrix(0, length(files), prod(dim(img))) 
+for (i in 1:length(files)) {
+  im <- readJPEG(files[i])
+  r  <- as.vector(im[,,1])
+  g  <- as.vector(im[,,2])
+  b  <- as.vector(im[,,3])
+  
+  flat[i,] <- t(c(r, g, b))
+}
+
+shoes=as.data.frame(t(flat))
+```
+
+# Normalizing the dataset using the mean value (=0) and standard deviation (=1):
+
+```{r }
+scaled<-scale(shoes, center = TRUE, scale = TRUE)
+mean.shoe<-attr(scaled, "scaled:center") #saving for classification
+std.shoe<-attr(scaled, "scaled:scale")  #saving for classification...later
+```
+
+# Calculating Covariance (Correlation)
+
+Finding correlation matrix showing the correlations between pairs of variables. This correlation matrix will be used to get the eigencomponents.
+```{r}
+Sigma_<-cor(scaled)
+```
+
+# Getting the Eigencomponents:Calculating the eigenvalues of the covariance matrix
+
+```{r}
+eig          <- eigen(Sigma_)
+eigenvalues  <- eig$values
+eigenvectors <- eig$vectors
+
+```
+
+# Choosing the number of principal components
+
+```{r}
+prop.var <- eigenvalues / sum(eigenvalues)
+cum.var  <- cumsum(eigenvalues) / sum(eigenvalues)
+thres    <- min(which(cum.var > .80))
+thres
+```
+
+# Eigenshoes accounted for 80% of the variability
+
+```{r}
+scaling<-diag(eigenvalues[1:thres]^(-1/2)) / (sqrt(nrow(scaled)-1))
+eigenshoes<-scaled%*%eigenvectors[,1:thres]%*%scaling
+imageShow(array(eigenshoes[,1], dim(img)))
+```
+
+# Second Eigenshoe 
+```{r}
+imageShow(array(eigenshoes[,2], dim(img)))
+```
+
+# visualization the proportion of variance explained by each of the components by means of a scree plot 
+
+```{r}
+mypca <- prcomp(shoes, center = TRUE, scale= TRUE)
+pca.var <- mypca$sdev^2
+pca.var.per <- round(pca.var/sum(pca.var)*100,1)
+barplot(pca.var.per, main = "Scree Plot", xlab = "Principal Component", ylab = "Percent Variation")
+```
+
+# Computing new dataset
+
+```{r}
+data_new<-as.data.frame(t(t(eigenshoes)%*%scaled))
+```
+
+It is found that there are 3 principal components among all the  components are accounted for 80% of the variability. 
+
+References: 
+
+(1) https://rpubs.com/dherrero12/543854
+(2) https://rpubs.com/R-Minator/eigenshoes
+
+
+
+
